@@ -1,7 +1,8 @@
 flask
 httpx
-fastapi
 gunicorn
-sqlalchemy[asyncio]
 asyncpg
-postgresql
+sqlalchemy
+psycopg2-binary
+redis
+httpx
