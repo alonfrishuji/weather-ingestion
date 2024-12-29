@@ -1,0 +1,7 @@
+flask
+httpx
+fastapi
+gunicorn
+sqlalchemy[asyncio]
+asyncpg
+postgresql
