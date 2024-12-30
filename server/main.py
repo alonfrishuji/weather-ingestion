@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from server.database import SessionLocal
 from server.models import WeatherData, BatchMetadata
+from sqlalchemy.sql import func
 
 app = Flask(__name__)
 

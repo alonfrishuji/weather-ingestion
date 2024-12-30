@@ -60,3 +60,21 @@ Running Tests
 - pytests /tests
 
 ## Project Structure
+
+```
+project/
+├── server/                      # 
+│   ├── main.py                  # 
+│   ├── ingestion_service.py     # 
+│   ├── database.py              # 
+│   ├── models.py                # 
+│   └── __init__.py              # 
+│
+├── tests/                       #
+│   ├── test_ingestion.py        #  service
+│   ├── test_api.py              # Tests for API endpoints
+│   └── __init__.py              # 
+├── Dockerfile                   # 
+├── README.md                    # 
+├── requirements.txt             # 
+└── .gitignore                   # 

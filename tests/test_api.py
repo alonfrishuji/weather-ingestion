@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-BASE_URL = ""
+BASE_URL = "https://weather-ingestion.onrender.com"
 
 @pytest.fixture
 def test_server():
