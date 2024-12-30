@@ -1,3 +1,6 @@
+print("Models module loaded!")  # Debug
+
+
 from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, Boolean, Index
 from server.database import Base
 
@@ -15,6 +18,7 @@ class WeatherData(Base):
         Index("ix_weather_lat_lon_time", "latitude", "longitude", "forecast_time"),
     )
 
+print(f"WeatherData registered in Base.metadata: {'weather_data' in Base.metadata.tables}")
 
 class BatchMetadata(Base):
     __tablename__ = "batch_metadata"
@@ -26,3 +30,6 @@ class BatchMetadata(Base):
     end_ingest_time = Column(TIMESTAMP, nullable=True)
     status = Column(String, nullable=False)  # ACTIVE, INACTIVE
     retained = Column(Boolean, default=True)  # Indicates if metadata is retained
+
+
+print(f"BatchMetadata registered in Base.metadata: {'batch_metadata' in Base.metadata.tables}")

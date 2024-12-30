@@ -1,8 +1,9 @@
 flask
 httpx
 gunicorn
-asyncpg
 sqlalchemy
 psycopg2-binary
 redis
 httpx
+pytest
+python-dotenv

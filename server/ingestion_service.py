@@ -6,7 +6,8 @@ from server.database import SessionLocal
 from server.models import WeatherData, BatchMetadata
 
 # External API configuration
-API_BASE_URL = "https://example-weather-data-provider.com"
+API_BASE_URL = "https://us-east1-climacell-platform-production.cloudfunctions.net/weather-data"
+
 BATCHES_ENDPOINT = f"{API_BASE_URL}/batches"
 BATCH_DATA_ENDPOINT = f"{API_BASE_URL}/batches/{{batch_id}}"
 
@@ -128,6 +129,9 @@ async def ingest_batch(batch_id):
             end_ingest_time=datetime.utcnow(),
         )
         session.add(metadata)
+        print(f"Added metadata data: {metadata}")
+
+        
 
         # Store weather data
         for record in batch_data:
@@ -141,6 +145,8 @@ async def ingest_batch(batch_id):
                 humidity=record.get("humidity"),
             )
             session.add(weather_entry)
+            print(f"Added weather data: {weather_entry}")
+
 
         session.commit()
         print(f"Batch {batch_id} ingested successfully.")
