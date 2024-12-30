@@ -1,12 +1,9 @@
-print("Models module loaded!")  # Debug
-
-
 from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, Boolean, Index
 from server.database import Base
 
 class WeatherData(Base):
     __tablename__ = "weather_data"
-    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, primary_key=True, index=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     forecast_time = Column(TIMESTAMP, nullable=False)
@@ -16,7 +13,7 @@ class WeatherData(Base):
     
     __table_args__ = (
         Index("ix_weather_lat_lon_time", "latitude", "longitude", "forecast_time"),
-        Index("ix_weather_batch_id", "batch_id")
+        Index("ix_weather_id", "batch_id"),
     )
 
 
