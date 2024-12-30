@@ -16,9 +16,9 @@ class WeatherData(Base):
     
     __table_args__ = (
         Index("ix_weather_lat_lon_time", "latitude", "longitude", "forecast_time"),
+        Index("ix_weather_batch_id", "batch_id")
     )
 
-print(f"WeatherData registered in Base.metadata: {'weather_data' in Base.metadata.tables}")
 
 class BatchMetadata(Base):
     __tablename__ = "batch_metadata"
@@ -31,5 +31,6 @@ class BatchMetadata(Base):
     status = Column(String, nullable=False)  # ACTIVE, INACTIVE
     retained = Column(Boolean, default=True)  # Indicates if metadata is retained
 
-
-print(f"BatchMetadata registered in Base.metadata: {'batch_metadata' in Base.metadata.tables}")
+    __table_args__ = (
+        Index("ix_batch_active", "status", postgresql_where=(status == "ACTIVE")),
+    )

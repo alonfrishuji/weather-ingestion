@@ -78,3 +78,20 @@ project/
 ├── README.md                    # 
 ├── requirements.txt             # 
 └── .gitignore                   # 
+```
+
+
+
+# Ideas to improve Performance
+**Clustered Index**
+
+Cluster the data physically based on the order of an index to speed up range queries.
+
+```sql
+CLUSTER weather_data USING ix_weather_lat_lon_time;
+```
+Use Case: Optimize range queries, such as:
+```sql
+SELECT * FROM weather_data
+WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
+```
