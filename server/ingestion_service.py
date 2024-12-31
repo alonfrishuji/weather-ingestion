@@ -1,9 +1,15 @@
+import asyncio
+from datetime import datetime
+from typing import Dict, List, Union
+from sqlalchemy.exc import OperationalError
 import httpx
 import redis
-import json
-from datetime import datetime
+from dateutil.parser import isoparse
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_exponential)
+
 from server.database import SessionLocal
-from server.models import WeatherData, BatchMetadata
+from server.models import BatchMetadata, WeatherData
 
 # External API configuration
 API_BASE_URL = "https://us-east1-climacell-platform-production.cloudfunctions.net/weather-data"
@@ -18,20 +24,30 @@ redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 # Redis TTL (cache expiration in seconds)
 CACHE_TTL = 300  # 5 minutes
 
+@retry(
+    stop=stop_after_attempt(5),  # Retry up to 5 times
+    wait=wait_exponential(multiplier=1, min=2, max=10),  # Exponential backoff
+    retry=retry_if_exception_type(httpx.RequestError),  # Retry on specific exceptions
+)
 # Function to fetch available batches
-async def fetch_batches():
+async def fetch_batches() ->  List[Dict[str, str]]:
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(BATCHES_ENDPOINT)
             response.raise_for_status()
+            print("Fetched batches successfully.")
             return response.json()  # Assuming the response is a list of batch IDs
         except httpx.RequestError as e:
             print(f"Error fetching batches: {e}")
             return []
         
-        
+@retry(
+    stop=stop_after_attempt(5),  # Retry up to 5 times
+    wait=wait_exponential(multiplier=1, min=2, max=10),  # Exponential backoff
+    retry=retry_if_exception_type(httpx.RequestError),  # Retry on specific exceptions
+)        
 # Function to fetch data for a specific batch with concurrent requests
-async def fetch_batch_data(batch_id, total_pages=5):
+async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str, Union[str, float]]]:
     async with httpx.AsyncClient() as client:
         try:
             # Fetch all pages concurrently
@@ -40,9 +56,10 @@ async def fetch_batch_data(batch_id, total_pages=5):
                     BATCH_DATA_ENDPOINT.format(batch_id=batch_id),
                     params={"page": page},
                 )
-                for page in range(1, total_pages + 1)
+                for page in range(total_pages)
             ]
             responses = await asyncio.gather(*tasks)
+            print(f"Fetched batch data for {batch_id} successfully.")
             
             batch_data = []
             for response in responses:
@@ -54,7 +71,8 @@ async def fetch_batch_data(batch_id, total_pages=5):
             return []
 
 # Function to delete old active batches
-def delete_old_active_batches():
+def delete_old_active_batches() -> None:
+
     session = SessionLocal()
     try:
         active_batches = session.query(BatchMetadata).filter(
@@ -75,7 +93,8 @@ def delete_old_active_batches():
     finally:
         session.close()
 
-def delete_weather_data_for_non_retained_batches():
+def delete_weather_data_for_non_retained_batches() -> None:
+
     session = SessionLocal()
     try:
         # Find non-retained batches
@@ -88,9 +107,9 @@ def delete_weather_data_for_non_retained_batches():
             session.query(WeatherData).filter(
                 WeatherData.batch_id == batch.batch_id
             ).delete()
-
+            
+        print("Deleting weather data for non-retained batches")
         session.commit()
-        print("Deleted weather data for non-retained batches.")
     except Exception as e:
         session.rollback()
         print(f"Error deleting weather data for non-retained batches: {e}")
@@ -98,7 +117,8 @@ def delete_weather_data_for_non_retained_batches():
         session.close()
 
 # Retain metadata for deleted batches
-def retain_metadata_for_deleted_batches():
+def retain_metadata_for_deleted_batches() -> None:
+
     session = SessionLocal()
     try:
         inactive_batches = session.query(BatchMetadata).filter(
@@ -121,9 +141,13 @@ def retain_metadata_for_deleted_batches():
 
 # Function to ingest a new batch
 # Batch insert WeatherData objects into the database
-def batch_insert_weather_data(weather_data_list):
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(OperationalError)
+)
+def batch_insert_weather_data(weather_data_list: List[WeatherData],batch_size = 2000) -> None:
     session = SessionLocal()
-    batch_size = 500  # Define a safe batch size
     try:
         for i in range(0, len(weather_data_list), batch_size):
             batch = weather_data_list[i:i + batch_size]
@@ -136,15 +160,23 @@ def batch_insert_weather_data(weather_data_list):
     finally:
         session.close()
 
-async def fetch_total_pages(batch_id):
+
+@retry(
+    stop=stop_after_attempt(5),  # Retry up to 5 times
+    wait=wait_exponential(multiplier=1, min=2, max=10),  # Exponential backoff
+    retry=retry_if_exception_type(httpx.RequestError),  # Retry on specific exceptions
+)
+async def fetch_total_pages(batch_id: str) -> int:
     """
     Fetch the total number of pages for a given batch ID.
     """
     async with httpx.AsyncClient() as client:
         try:
+            print(f"Fetching total pages for batch {batch_id}")
             response = await client.get(
                 BATCH_DATA_ENDPOINT.format(batch_id=batch_id), params={"page": 0}
             )
+            print(f"Response status: {response.status_code}")
             response.raise_for_status()
             data = response.json()
             return data.get("metadata", {}).get("total_pages", 0)  # Default to 0 if not provided
@@ -153,37 +185,35 @@ async def fetch_total_pages(batch_id):
             return 1
 
 
-async def ingest_batch(batch_id):
+async def ingest_batch(batch: Dict[str, Union[str, int]]):
     """
     Ingest all data for a batch by dynamically determining total pages.
     """
     session = SessionLocal()
     try:
-        print(f"Starting ingestion for batch {batch_id}")
-
+        batch_id = batch["batch_id"] if isinstance(batch, dict) else batch
+        batch_forecast_time = isoparse(batch["forecast_time"]) if isinstance(batch, dict) else datetime.now()
+        existing_metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()        
+        
+        if existing_metadata:
+            print(f"Batch {batch_id} already exists. Skipping metadata insertion.")
+            return
+            
         start_time = datetime.now()
+        print(f"Starting ingestion for batch {batch_id}")
 
         # Fetch the total number of pages for the batch
         total_pages = await fetch_total_pages(batch_id)
         print(f"Total pages for batch {batch_id}: {total_pages}")
 
         # Fetch all pages for the batch concurrently
-        tasks = [
-            fetch_batch_data(batch_id, page) for page in range(total_pages)
-        ]
-        pages_data = await asyncio.gather(*tasks)
-
-        # Combine all data from fetched pages
-        batch_data = [
-            item for page_data in pages_data if page_data for item in page_data.get("data", [])
-        ]
-
+        batch_data = await fetch_batch_data(batch_id, total_pages)
         print(f"Total records fetched for batch {batch_id}: {len(batch_data)}")
 
         # Store batch metadata
         metadata = BatchMetadata(
             batch_id=batch_id,
-            forecast_time=start_time,
+            forecast_time=batch_forecast_time,
             status="ACTIVE",
             number_of_rows=len(batch_data),
             start_ingest_time=start_time,
@@ -191,22 +221,20 @@ async def ingest_batch(batch_id):
         )
         session.add(metadata)
         session.commit()
-        print(f"Batch metadata added for batch {batch_id}")
+        
 
-        # Create WeatherData objects
         weather_data_list = [
             WeatherData(
                 batch_id=batch_id,
                 latitude=record["latitude"],
                 longitude=record["longitude"],
-                forecast_time=record["forecast_time"],
+                forecast_time=batch_forecast_time,
                 temperature=record.get("temperature"),
                 precipitation_rate=record.get("precipitation_rate"),
                 humidity=record.get("humidity"),
             )
             for record in batch_data
         ]
-
         # Batch insert weather data
         batch_insert_weather_data(weather_data_list)
         print(f"Batch {batch_id} ingested successfully.")
@@ -218,11 +246,23 @@ async def ingest_batch(batch_id):
 
 
 # Main function to fetch and process all batches
-async def process_batches():
+async def process_batches() -> None:
     batches = await fetch_batches()
-    for batch_id in batches:
-        await ingest_batch(batch_id)
+    for batch in batches:
+        await ingest_batch(batch)
 
+    # Step 2: Cleanup old active batches
+    print("Deleting old active batches")
+    delete_old_active_batches()
+
+    # Step 3: Cleanup non-retained batches
+    delete_weather_data_for_non_retained_batches()
+
+    # Step 4: Retain metadata for deleted batches
+    retain_metadata_for_deleted_batches()
+
+    print("Batch processing and cleanup completed successfully")
+    
+    
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(process_batches())

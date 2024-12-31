@@ -95,3 +95,16 @@ Use Case: Optimize range queries, such as:
 SELECT * FROM weather_data
 WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
 ```
+# Scalability and Performance Considerations
+
+In this project, I focused on designing a system that is scalable and efficient for handling large datasets.
+
+## Infrastructure Optimization:
+ I would fine-tune the database settings to handle high-throughput operations by implementing efficient connection pooling, optimizing queries, and using bulk inserts to reduce transaction overhead.
+## Backend Framework: 
+I chose FastAPI as the backend framework because of its asynchronous support, high performance, and rich ecosystem. FastAPI allows me to handle concurrent requests effectively while integrating seamlessly with tools like Pydantic and OpenAPI for better validation and documentation.
+## Database Performance:
+ To optimize database performance, I would go beyond just using indexes. Strategies like query caching, denormalization for read-heavy operations, table partitioning for large datasets, and leveraging database-specific features such as materialized views or JSONB for semi-structured data would be implemented.
+
+## Conclusion
+These decisions reflect my focus on building a robust, efficient, and scalable system that can adapt to growing data and user demands.

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 from server.ingestion_service import fetch_batches, delete_weather_data_for_non_retained_batches, ingest_batch, fetch_batch_data
 from server.models import BatchMetadata, WeatherData
 from server.database import SessionLocal
-
+import asyncio 
 
 @pytest.fixture
 def setup_test_data():
@@ -103,9 +103,8 @@ async def test_fetch_batches():
     mock_batches = ["batch1", "batch2", "batch3"]
     with patch("server.ingestion_service.httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
         # Mock the API response
-        mock_get.return_value.json.return_value = mock_batches
         mock_get.return_value.status_code = 200
-
+        mock_get.return_value.json = AsyncMock(return_value=mock_batches)
         # Call the function
         batches = await fetch_batches()
 
@@ -141,7 +140,6 @@ async def test_fetch_batch_data():
             params={"page": page},
         )
 
-
 @pytest.mark.asyncio
 async def test_ingest_batch(setup_test_data, cleanup_test_data):
     """
@@ -152,17 +150,16 @@ async def test_ingest_batch(setup_test_data, cleanup_test_data):
         {"latitude": 40.7128, "longitude": -74.0060, "temperature": 15.0, "humidity": 60.0, "precipitation_rate": 0.1},
         {"latitude": 34.0522, "longitude": -118.2437, "temperature": 20.0, "humidity": 55.0, "precipitation_rate": 0.2},
     ]
-    with patch("server.ingestion_service.fetch_batch_data", return_value={"data": mock_batch_data}):
+    with patch("server.ingestion_service.fetch_batch_data", return_value=mock_batch_data):
         with patch("server.ingestion_service.fetch_total_pages", return_value=1):
             await ingest_batch("test_batch")
 
             # Validate data in database
             session = SessionLocal()
-            batch_metadata = session.query(BatchMetadata).filter_by(batch_id="test_batch").one()
-            weather_data = session.query(WeatherData).filter_by(batch_id="test_batch").all()
-
-            # Assertions
+            batch_metadata = session.query(BatchMetadata).filter_by(batch_id="test_batch").one_or_none()
             assert batch_metadata is not None, "Batch metadata not stored"
+
+            weather_data = session.query(WeatherData).filter_by(batch_id="test_batch").all()
             assert len(weather_data) == len(mock_batch_data), "Weather data not stored correctly"
             session.close()
 

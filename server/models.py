@@ -1,5 +1,10 @@
-from sqlalchemy import Column, Integer, Float, String, TIMESTAMP, Boolean, Index
+from sqlalchemy import (TIMESTAMP, Boolean, Column, Float, Index, Integer,
+                        String)
+from sqlalchemy.dialects.postgresql import TIMESTAMP as PG_TIMESTAMP
+from sqlalchemy.sql import func
+
 from server.database import Base
+
 
 class WeatherData(Base):
     __tablename__ = "weather_data"
@@ -7,7 +12,7 @@ class WeatherData(Base):
     batch_id = Column(String, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    forecast_time = Column(TIMESTAMP, nullable=False)
+    forecast_time = Column(PG_TIMESTAMP(timezone=True), nullable=False)
     temperature = Column(Float)
     precipitation_rate = Column(Float)
     humidity = Column(Float)
@@ -24,8 +29,8 @@ class BatchMetadata(Base):
     batch_id = Column(String, primary_key=True)
     forecast_time = Column(TIMESTAMP, nullable=False)
     number_of_rows = Column(Integer, nullable=False)
-    start_ingest_time = Column(TIMESTAMP, nullable=False)
-    end_ingest_time = Column(TIMESTAMP, nullable=True)
+    start_ingest_time =  Column(PG_TIMESTAMP(timezone=True), nullable=False, default=func.now())
+    end_ingest_time = Column(PG_TIMESTAMP(timezone=True), nullable=True)
     status = Column(String, nullable=False)  # ACTIVE, INACTIVE
     retained = Column(Boolean, default=True)  # Indicates if metadata is retained
 
