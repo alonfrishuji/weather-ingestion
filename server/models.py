@@ -3,7 +3,8 @@ from server.database import Base
 
 class WeatherData(Base):
     __tablename__ = "weather_data"
-    batch_id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(String, nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     forecast_time = Column(TIMESTAMP, nullable=False)
