@@ -4,7 +4,7 @@ from server.database import init_db, SessionLocal
 from server.models import WeatherData, BatchMetadata
 from server.ingestion_service import process_batches
 from sqlalchemy.sql import func
-from utils import fetch_weather_data, summarize_weather_data, fetch_batches, format_weather_data, format_weather_summary
+from server.utils import fetch_weather_data, summarize_weather_data, fetch_batches, format_weather_data, format_weather_summary
 import asyncio
 import threading
 import datetime
