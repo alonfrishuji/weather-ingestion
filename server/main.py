@@ -4,8 +4,10 @@ from server.database import init_db, SessionLocal
 from server.models import WeatherData, BatchMetadata
 from server.ingestion_service import process_batches
 from sqlalchemy.sql import func
+from utils import fetch_weather_data, summarize_weather_data, fetch_batches, format_weather_data, format_weather_summary
 import asyncio
 import threading
+import datetime
 
 app = Flask(__name__)
 
@@ -13,99 +15,79 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-# Start the ingestion service as a background thread
+def start_ingestion_service():
+    """
+    Start the ingestion service in a background thread.
+    """
+    logger.info("Starting the ingestion service...")
+    threading.Thread(target=lambda: asyncio.run(keep_running_ingestion()), daemon=True).start()
+    logger.info("Ingestion service started.")
+
+
+async def keep_running_ingestion():
+    """
+    Continuously run the ingestion service in a loop.
+    """
+    while True:
+        start_time = datetime.datetime.now()
+        logger.info(f"[{start_time}] Starting ingestion service")
+        
+        try:
+            await process_batches()
+        except Exception as e:
+            logger.error(f"[{datetime.datetime.now()}] Error in ingestion service: {e}")
+        
+        end_time = datetime.datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        logger.info(f"[{end_time}] Ingestion service completed. Duration: {duration:.2f} seconds.")
+        
+        logger.info(f"[{datetime.datetime.now()}] Waiting before the next ingestion cycle")
+        await asyncio.sleep(6000)  # Wait 100 minutes before the next cycle
+
+
+# Initialize the system
 def initialize_system():
     """
-    Initialize the database and start the ingestion service.
+    Initialize the database at application startup.
     """
-    logger.info("Initializing the database")
+    logger.info("database initialization started")
     init_db()
     logger.info("Database initialized successfully.")
 
-    logger.info("Starting the ingestion service")
-    threading.Thread(target=lambda: asyncio.run(process_batches()), daemon=True).start()
-    logger.info("Ingestion service started.")
 
- 
-initialize_system()
 
 @app.route("/weather/data", methods=["GET"])
 def get_weather_data():
     latitude = request.args.get("latitude", type=float)
     longitude = request.args.get("longitude", type=float)
 
-    session = SessionLocal()
+    if latitude is None or longitude is None:
+        return jsonify({"error": "Missing latitude or longitude"}), 400
+
     try:
-        data = session.query(WeatherData).filter_by(latitude=latitude, longitude=longitude).all()
-        return jsonify([{
-            "latitude": d.latitude,
-            "longitude": d.longitude,
-            "forecast_time": d.forecast_time,
-            "temperature": d.temperature,
-            "precipitation_rate": d.precipitation_rate,
-            "humidity": d.humidity
-        } for d in data])
+        data = fetch_weather_data(latitude, longitude)
+        return jsonify(format_weather_data(data))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
 
 @app.route("/weather/summarize", methods=["GET"])
-def summarize_weather_data():
+def summarize_weather():
     latitude = request.args.get("latitude", type=float)
     longitude = request.args.get("longitude", type=float)
 
     if latitude is None or longitude is None:
         return jsonify({"error": "Missing latitude or longitude"}), 400
 
-    session = SessionLocal()
     try:
-        # Query for summary statistics
-        summary = session.query(
-            func.max(WeatherData.temperature).label("max_temperature"),
-            func.min(WeatherData.temperature).label("min_temperature"),
-            func.avg(WeatherData.temperature).label("avg_temperature"),
-            func.max(WeatherData.precipitation_rate).label("max_precipitation_rate"),
-            func.min(WeatherData.precipitation_rate).label("min_precipitation_rate"),
-            func.avg(WeatherData.precipitation_rate).label("avg_precipitation_rate"),
-            func.max(WeatherData.humidity).label("max_humidity"),
-            func.min(WeatherData.humidity).label("min_humidity"),
-            func.avg(WeatherData.humidity).label("avg_humidity"),
-        ).filter(
-            WeatherData.latitude == latitude,
-            WeatherData.longitude == longitude
-        ).one()
-
-        # Format the response
-        result = {
-            "temperature": {
-                "max": summary.max_temperature,
-                "min": summary.min_temperature,
-                "avg": summary.avg_temperature,
-            },
-            "precipitation_rate": {
-                "max": summary.max_precipitation_rate,
-                "min": summary.min_precipitation_rate,
-                "avg": summary.avg_precipitation_rate,
-            },
-            "humidity": {
-                "max": summary.max_humidity,
-                "min": summary.min_humidity,
-                "avg": summary.avg_humidity,
-            },
-        }
-        return jsonify(result)
-
+        summary = summarize_weather_data(latitude, longitude)
+        return jsonify(format_weather_summary(summary))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-  
+
 @app.route("/batches", methods=["GET"])
 def get_batches():
-    session = SessionLocal()
     try:
-        batches = session.query(BatchMetadata).all()
+        batches = fetch_batches()
         return jsonify([{
             "batch_id": b.batch_id,
             "forecast_time": b.forecast_time,
@@ -116,6 +98,7 @@ def get_batches():
         } for b in batches])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-        
+
+# start app
+initialize_system()
+start_ingestion_service()
