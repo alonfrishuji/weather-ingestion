@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import logging
 from server.database import init_db, SessionLocal
-from server.models import WeatherData, BatchMetadata
 from server.ingestion_service import process_batches
 from sqlalchemy.sql import func
 from server.utils import fetch_weather_data, summarize_weather_data, fetch_batches, format_weather_data, format_weather_summary
@@ -19,7 +18,7 @@ def start_ingestion_service():
     """
     Start the ingestion service in a background thread.
     """
-    logger.info("Starting the ingestion service...")
+    logger.info("Starting the ingestion services")
     threading.Thread(target=lambda: asyncio.run(keep_running_ingestion()), daemon=True).start()
     logger.info("Ingestion service started.")
 
@@ -50,7 +49,6 @@ def initialize_system():
     """
     Initialize the database at application startup.
     """
-    logger.info("database initialization started")
     init_db()
     logger.info("Database initialized successfully.")
 

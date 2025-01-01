@@ -32,7 +32,6 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 # Function to initialize the database
 def init_db():
-    logger.info("Starting database initialization")
     from server.models import BatchMetadata, WeatherData
     try:
         Base.metadata.create_all(bind=engine)
