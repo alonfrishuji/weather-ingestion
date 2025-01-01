@@ -1,8 +1,7 @@
-# Weather Ingestion Project 
-## Alon Frishberg 
+# ⚡ Weather Ingestion Project 
 
-## 🔗 GitHub Repository
 
+Alon Frishberg  
 [🚀 Explore the Code on GitHub](https://github.com/alonfrishuji/weather-ingestion)
 
 ## Overview
@@ -13,59 +12,13 @@ This project ingests weather data from an external provider, processes it, and p
 
 The backend is built using **Flask** and uses a **PostgreSQL** database for data storage.
 
----
+Below are some useful links:
 
-## Features
-1. **Weather Data Ingestion**: Ingest weather data batches from an external API.
-2. **API Endpoints**:
-   - `/weather/data`: Retrieve weather forecast for a specific location.
-   - `/weather/summarize`: Get summarized weather data (max, min, avg).
-   - `/batches/`: View metadata about ingested weather data batches.
-3. **Database Management**:
-   - Retains only the latest three active data batches.
-   - Retains metadata for all ingested batches, including deleted ones.
+- [Usage Guide](usage.md)
+- [Local Testing Guide](local_testing.md)
 
 ---
-
-## Prerequisites
-1. **Python 3.9+**
-2. **PostgreSQL Database**
-3. **Pipenv** or **pip** for package management (recommended).
-
-## how to use it ? 
- `pip install -r requirements.txt`
-2. 
-3. Create a database:
-    `createdb weather_db`
-
-4. Update the connection string in server/database.py:
-    DATABASE_URL = "postgresql://user:password@localhost/weather_db"
-5. run the initialization script to create tables:
-    `python server/database.py`
-
-6.  Run the Ingestion Script
-    `python server/ingestion_service.py`
-7. start the server : 
-    `gunicorn server.main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000`
-
-
-## Usage: 
-API Endpoints
-*Get Weather Data for a Location*
-GET /weather/data?latitude=40.7128&longitude=-74.0060
-
-*Summarize Weather Data*
-GET /weather/summarize?latitude=40.7128&longitude=-74.0060
-
-*View Batch Metadata*
-GET /batches/
-
-
-Running Tests
-- pytests /tests
-
 ## Project Structure
-
 ```
 project/
 ├── server/                      # 
@@ -85,8 +38,6 @@ project/
 └── .gitignore                   # 
 ```
 
-
-
 # Ideas to improve Performance
 **Clustered Index**
 
@@ -101,7 +52,7 @@ SELECT * FROM weather_data
 WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
 ```
 # Pitfalls:
-- using Batched Concurrency for efficient insertion handling 
+- Using Batched Concurrency for efficient insertion handling 
 
 ```python
 from asyncio import Semaphore
@@ -119,10 +70,33 @@ async def process_batches() -> None:
     tasks = [ingest_batch_limited(batch, semaphore) for batch in sorted_batches]
     await asyncio.gather(*tasks)
 ```
+## Preventive Measures for database performance
+### Monitor Disk Usage Regularly
+
+Use database monitoring tools provided by Render or integrate third-party monitoring (e.g., Datadog, New Relic).
+
+###  Set Data Retention Policies
+For time-series data (like weather), remove older data periodically:
+```sql
+DELETE FROM weather_data WHERE forecast_time < NOW() - INTERVAL '30 days';
+```
+### Schedule Maintenance
+
+Scheduling regular VACUUM and REINDEX operations to clean up dead tuples and optimize indexes.
+
+### Efficient Indexing
+
+Ensuring queries are optimized and using the right indexes to avoid unnecessary writes.
 
 
+## Clear Unnecessary Data
+Once you identify large tables or unused indexes -> clear or delete data.
 
-# Scalability and Performance Considerations
+```sql
+DELETE FROM weather_data WHERE forecast_time < NOW() - INTERVAL '30 days';
+```
+
+## Scalability and Performance Considerations
 
 In this project, I focused on designing a system that is scalable and efficient for handling large datasets.
 
