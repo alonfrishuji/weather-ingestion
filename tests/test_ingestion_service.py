@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, patch
 from server.ingestion_service import fetch_batches, delete_weather_data_for_non_retained_batches, ingest_batch, fetch_batch_data
 from server.models import BatchMetadata, WeatherData
 from server.database import SessionLocal
-import asyncio 
+from config import BATCH_DATA_ENDPOINT
+from datetime import datetime
 
 @pytest.fixture
 def setup_test_data():
@@ -100,18 +101,23 @@ async def test_fetch_batches():
     """
     Test fetching batch IDs from the external API.
     """
-    mock_batches = ["batch1", "batch2", "batch3"]
-    with patch("server.ingestion_service.httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        # Mock the API response
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json = AsyncMock(return_value=mock_batches)
+    mock_batches = [{"batch_id": "batch1"}, {"batch_id": "batch2"}, {"batch_id": "batch3"}]
+
+    # Patch the httpx.AsyncClient class
+    with patch("server.ingestion_service.httpx.AsyncClient") as mock_client:
+        # Create a mock response
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json = AsyncMock(return_value=mock_batches)
+
+        # Configure the mocked client to return the mock response
+        mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+
         # Call the function
         batches = await fetch_batches()
-
         # Assertions
         assert batches == mock_batches, "Failed to fetch batches correctly"
-        mock_get.assert_called_once()
-
+        
 
 @pytest.mark.asyncio
 async def test_fetch_batch_data():
@@ -119,26 +125,38 @@ async def test_fetch_batch_data():
     Test fetching paginated batch data from the external API.
     """
     batch_id = "test_batch"
-    page = 1
+    total_pages = 1  # Only one page of data
     mock_data = {
         "data": [
             {"latitude": 40.7128, "longitude": -74.0060, "temperature": 15.0, "humidity": 60.0, "precipitation_rate": 0.1},
         ]
     }
-    with patch("server.ingestion_service.httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        # Mock the API response
-        mock_get.return_value.json.return_value = mock_data
-        mock_get.return_value.status_code = 200
+
+    with patch("server.ingestion_service.httpx.AsyncClient") as mock_client:
+        # Create a mock response
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json = AsyncMock(return_value=mock_data)
+
+        # Configure the mock client to return the mock response
+        mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
 
         # Call the function
-        data = await fetch_batch_data(batch_id, page)
-
+        data = await fetch_batch_data(batch_id, total_pages)
+        
         # Assertions
-        assert "data" in data, "Weather data missing in response"
-        mock_get.assert_called_once_with(
-            f"https://us-east1-climacell-platform-production.cloudfunctions.net/weather-data/batches/{batch_id}",
-            params={"page": page},
-        )
+        assert len(data) == len(mock_data["data"]), "Failed to fetch the correct number of records."
+        assert data[0]["latitude"] == mock_data["data"][0]["latitude"], "Latitude mismatch in the fetched data."
+        assert data[0]["longitude"] == mock_data["data"][0]["longitude"], "Longitude mismatch in the fetched data."
+        assert data[0]["temperature"] == mock_data["data"][0]["temperature"], "Temperature mismatch in the fetched data."
+        assert data[0]["humidity"] == mock_data["data"][0]["humidity"], "Humidity mismatch in the fetched data."
+        assert data[0]["precipitation_rate"] == mock_data["data"][0]["precipitation_rate"], "Precipitation rate mismatch in the fetched data."
+
+        # Ensure the GET method was called with the correct URL and parameters
+        mock_client.return_value.__aenter__.return_value.get.assert_called_once_with(
+            BATCH_DATA_ENDPOINT.format(batch_id=batch_id),
+            params={"page": 0},
+        )    
 
 @pytest.mark.asyncio
 async def test_ingest_batch(setup_test_data, cleanup_test_data):
@@ -146,13 +164,17 @@ async def test_ingest_batch(setup_test_data, cleanup_test_data):
     Test the ingestion of a batch into the database.
     """
     # Mock external API responses
+    mock_batch = {
+    "batch_id": f"test_batch_{datetime.now().timestamp()}",
+    "forecast_time": "2025-01-01T00:00:00Z",
+}
     mock_batch_data = [
         {"latitude": 40.7128, "longitude": -74.0060, "temperature": 15.0, "humidity": 60.0, "precipitation_rate": 0.1},
         {"latitude": 34.0522, "longitude": -118.2437, "temperature": 20.0, "humidity": 55.0, "precipitation_rate": 0.2},
     ]
     with patch("server.ingestion_service.fetch_batch_data", return_value=mock_batch_data):
         with patch("server.ingestion_service.fetch_total_pages", return_value=1):
-            await ingest_batch("test_batch")
+            await ingest_batch(mock_batch)
 
             # Validate data in database
             session = SessionLocal()

@@ -95,6 +95,31 @@ Use Case: Optimize range queries, such as:
 SELECT * FROM weather_data
 WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
 ```
+# pitfalls:
+- using Batched Concurrency
+```python
+from asyncio import Semaphore
+
+async def ingest_batch_limited(batch, semaphore: Semaphore):
+    async with semaphore:
+        await ingest_batch(batch)
+
+async def process_batches() -> None:
+    """Fetch and process all batches."""
+    batches = await fetch_batches()
+    sorted_batches = sorted(batches, key=lambda x: isoparse(x["forecast_time"]))
+
+    semaphore = Semaphore(5)  # Allow up to 5 concurrent tasks
+    tasks = [ingest_batch_limited(batch, semaphore) for batch in sorted_batches]
+    await asyncio.gather(*tasks)
+```
+
+
+
+
+
+
+
 # Scalability and Performance Considerations
 
 In this project, I focused on designing a system that is scalable and efficient for handling large datasets.
