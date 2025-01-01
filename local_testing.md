@@ -10,7 +10,7 @@ pip install -r requirements.txt
 2. Run All Tests Using Pytest
 From the root directory of the project, execute:
 ```bash
-pytest /tests
+pytest -v
 ```
 
 This will automatically discover and run all test cases located in the /tests directory.

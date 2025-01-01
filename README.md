@@ -17,28 +17,12 @@ Below are some useful links:
 - [Usage Guide](usage.md)
 - [Local Testing Guide](local_testing.md)
 
----
-## Project Structure
-```
-project/
-├── server/                      # 
-│   ├── main.py                  # 
-│   ├── ingestion_service.py     # 
-│   ├── database.py              # 
-│   ├── models.py                # 
-│   └── __init__.py              # 
-│
-├── tests/                       #
-│   ├── test_ingestion.py        #  service
-│   ├── test_api.py              # Tests for API endpoints
-│   └── __init__.py              # 
-├── Dockerfile                   # 
-├── README.md                    # 
-├── requirements.txt             # 
-└── .gitignore                   # 
-```
 
-# Ideas to improve Performance
+
+
+
+
+##  Ideas to improve Performance and Pitfalls:
 **Clustered Index**
 
 Cluster the data physically based on the order of an index to speed up range queries.
@@ -51,8 +35,7 @@ Use Case: Optimize range queries, such as:
 SELECT * FROM weather_data
 WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
 ```
-# Pitfalls:
-- Using Batched Concurrency for efficient insertion handling 
+ **Using Batched Concurrency for efficient insertion handling** 
 
 ```python
 from asyncio import Semaphore
