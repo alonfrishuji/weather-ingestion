@@ -31,8 +31,8 @@ class BatchMetadata(Base):
     number_of_rows = Column(Integer, nullable=False)
     start_ingest_time =  Column(PG_TIMESTAMP(timezone=True), nullable=False, default=func.now())
     end_ingest_time = Column(PG_TIMESTAMP(timezone=True), nullable=True)
-    status = Column(String, nullable=False)  # ACTIVE, INACTIVE
-    retained = Column(Boolean, default=True)  # Indicates if metadata is retained
+    status = Column(String, nullable=False)  # ACTIVE, INACTIVE 
+    retained = Column(Boolean, default=True)  
 
     __table_args__ = (
         Index("ix_batch_active", "status", postgresql_where=(status == "ACTIVE")),

@@ -193,12 +193,12 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]):
     try:
         batch_id = batch["batch_id"] if isinstance(batch, dict) else batch
         batch_forecast_time = isoparse(batch["forecast_time"]) if isinstance(batch, dict) else datetime.now()
-        existing_metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()        
-        
+        existing_metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()
+
         if existing_metadata:
             print(f"Batch {batch_id} already exists. Skipping metadata insertion.")
             return
-            
+
         start_time = datetime.now()
         print(f"Starting ingestion for batch {batch_id}")
 
@@ -208,21 +208,21 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]):
 
         # Fetch all pages for the batch concurrently
         batch_data = await fetch_batch_data(batch_id, total_pages)
-        print(f"Total records fetched for batch {batch_id}: {len(batch_data)}")
+        number_of_rows = len(batch_data)  # Calculate the number of rows
+        print(f"Total records fetched for batch {batch_id}: {number_of_rows}")
 
-        # Store batch metadata
+        # Store batch metadata with accurate number_of_rows
         metadata = BatchMetadata(
             batch_id=batch_id,
             forecast_time=batch_forecast_time,
-            status="ACTIVE",
-            number_of_rows=len(batch_data),
+            status="RUNNING",  # Set the status to RUNNING
+            number_of_rows=number_of_rows,  # Use the actual number of rows
             start_ingest_time=start_time,
-            end_ingest_time=datetime.now(),
         )
         session.add(metadata)
         session.commit()
-        
 
+        # Insert weather data
         weather_data_list = [
             WeatherData(
                 batch_id=batch_id,
@@ -235,12 +235,22 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]):
             )
             for record in batch_data
         ]
-        # Batch insert weather data
         batch_insert_weather_data(weather_data_list)
-        print(f"Batch {batch_id} ingested successfully.")
+
+        # Update status to ACTIVE
+        metadata.status = "ACTIVE"
+        metadata.end_ingest_time = datetime.now()
+        session.commit()
+        print(f"Batch {batch_id} ingested successfully and marked as ACTIVE.")
     except Exception as e:
         session.rollback()
         print(f"Error ingesting batch {batch_id}: {e}")
+
+        # Update status to FAILED
+        metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()
+        if metadata:
+            metadata.status = "FAILED"
+            session.commit()
     finally:
         session.close()
 
@@ -248,8 +258,8 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]):
 # Main function to fetch and process all batches
 async def process_batches() -> None:
     batches = await fetch_batches()
-    for batch in batches:
-        await ingest_batch(batch)
+    tasks = [ingest_batch(batch) for batch in batches]
+    await asyncio.gather(*tasks)
 
     # Step 2: Cleanup old active batches
     print("Deleting old active batches")
