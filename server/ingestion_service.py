@@ -166,19 +166,28 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]) -> None:
             return
 
         logger.info(f"Starting ingestion for batch {batch_id}.")
-        total_pages = await fetch_total_pages(batch_id)
-        batch_data = await fetch_batch_data(batch_id, total_pages)
-        metadata = BatchMetadata(
-            batch_id=batch_id,
-            forecast_time=batch_forecast_time,
-            status="RUNNING",
-            number_of_rows=len(batch_data),
-            start_ingest_time=datetime.now(),
-        )
-        session.add(metadata)
-        session.commit()
+        batch_data, metadata = await initialize_metadata(session, batch_id, batch_forecast_time)
 
-        weather_records = [
+        process_batch_weather_data(batch_id, batch_forecast_time, batch_data)
+        update_metadata_status(session, metadata)
+        logger.info(f"Batch {batch_id} ingested successfully.")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error ingesting batch {batch_id}: {e}")
+        metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()
+        if metadata:
+            metadata.status = "FAILED"
+            session.commit()
+    finally:
+        session.close()
+
+def update_metadata_status(session, metadata):
+    metadata.status = "ACTIVE"
+    metadata.end_ingest_time = datetime.now()
+    session.commit()
+
+def process_batch_weather_data(batch_id, batch_forecast_time, batch_data):
+    weather_records = [
             WeatherData(
                 batch_id=batch_id,
                 latitude=record["latitude"],
@@ -190,21 +199,21 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]) -> None:
             )
             for record in batch_data
         ]
-        batch_insert_weather_data(weather_records)
+    batch_insert_weather_data(weather_records)
 
-        metadata.status = "ACTIVE"
-        metadata.end_ingest_time = datetime.now()
-        session.commit()
-        logger.info(f"Batch {batch_id} ingested successfully.")
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Error ingesting batch {batch_id}: {e}")
-        metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()
-        if metadata:
-            metadata.status = "FAILED"
-            session.commit()
-    finally:
-        session.close()
+async def initialize_metadata(session, batch_id, batch_forecast_time):
+    total_pages = await fetch_total_pages(batch_id)
+    batch_data = await fetch_batch_data(batch_id, total_pages)
+    metadata = BatchMetadata(
+            batch_id=batch_id,
+            forecast_time=batch_forecast_time,
+            status="RUNNING",
+            number_of_rows=len(batch_data),
+            start_ingest_time=datetime.now(),
+        )
+    session.add(metadata)
+    session.commit()
+    return batch_data,metadata
 
 async def process_batches() -> None:
     """Fetch and process all batches."""

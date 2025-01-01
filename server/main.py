@@ -1,9 +1,33 @@
 from flask import Flask, request, jsonify
-from server.database import SessionLocal
+import logging
+from server.database import init_db, SessionLocal
 from server.models import WeatherData, BatchMetadata
+from server.ingestion_service import process_batches
 from sqlalchemy.sql import func
+import asyncio
+import threading
 
 app = Flask(__name__)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+# Start the ingestion service as a background thread
+def initialize_system():
+    """
+    Initialize the database and start the ingestion service.
+    """
+    logger.info("Initializing the database...")
+    init_db()
+    logger.info("Database initialized successfully.")
+
+    logger.info("Starting the ingestion service...")
+    threading.Thread(target=lambda: asyncio.run(process_batches()), daemon=True).start()
+    logger.info("Ingestion service started.")
+
+ 
+initialize_system()
 
 @app.route("/weather/data", methods=["GET"])
 def get_weather_data():
@@ -94,3 +118,4 @@ def get_batches():
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
+        

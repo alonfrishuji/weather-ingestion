@@ -1,5 +1,5 @@
 import os
-
+import logging
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -7,6 +7,10 @@ from sqlalchemy.orm import sessionmaker
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -28,15 +32,15 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 # Function to initialize the database
 def init_db():
-    print("Starting database initialization...")
+    logger.info("Starting database initialization")
     from server.models import BatchMetadata, WeatherData
     try:
         Base.metadata.create_all(bind=engine)
-        print("Tables created successfully!")
+        logger.info("Tables created successfully!")
     except Exception as e:
-        print(f"Error creating tables: {e}")
+        logger.error(f"Error creating tables: {e}")
+    logger.info("Database initialization complete!")
 
-    print("Database initialization complete!")
     
     
 if __name__ == "__main__":
