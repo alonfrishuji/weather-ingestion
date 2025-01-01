@@ -162,7 +162,7 @@ async def ingest_batch(batch: Dict[str, Union[str, int]]) -> None:
         existing_metadata = session.query(BatchMetadata).filter_by(batch_id=batch_id).first()
 
         if existing_metadata:
-            logger.info(f"Batch {batch_id} already exists. Skipping.")
+            logger.warning(f"Duplicate batch detected: {batch['batch_id']}. Skipping insertion.")
             return
 
         logger.info(f"Starting ingestion for batch {batch_id}.")

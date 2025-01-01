@@ -95,8 +95,9 @@ Use Case: Optimize range queries, such as:
 SELECT * FROM weather_data
 WHERE forecast_time BETWEEN '2024-01-01T12:00:00' AND '2024-01-01T18:00:00';
 ```
-# pitfalls:
-- using Batched Concurrency
+# Pitfalls:
+- using Batched Concurrency for efficient insertion handling 
+
 ```python
 from asyncio import Semaphore
 
@@ -113,10 +114,6 @@ async def process_batches() -> None:
     tasks = [ingest_batch_limited(batch, semaphore) for batch in sorted_batches]
     await asyncio.gather(*tasks)
 ```
-
-
-
-
 
 
 
