@@ -18,11 +18,11 @@ def initialize_system():
     """
     Initialize the database and start the ingestion service.
     """
-    logger.info("Initializing the database...")
+    logger.info("Initializing the database")
     init_db()
     logger.info("Database initialized successfully.")
 
-    logger.info("Starting the ingestion service...")
+    logger.info("Starting the ingestion service")
     threading.Thread(target=lambda: asyncio.run(process_batches()), daemon=True).start()
     logger.info("Ingestion service started.")
 
