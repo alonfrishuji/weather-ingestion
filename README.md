@@ -1,8 +1,5 @@
 # ⚡ Weather Ingestion Project 
-
-
-Alon Frishberg  
-[🚀 Explore the Code on GitHub](https://github.com/alonfrishuji/weather-ingestion)
+author: Alon Frishberg  
 
 ## Overview
 This project ingests weather data from an external provider, processes it, and provides APIs to:
