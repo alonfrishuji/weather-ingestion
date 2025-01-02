@@ -60,6 +60,7 @@ async def process_batches() -> None:
 
 **fetch_weather_data**: Cache weather data based on latitude and longitude to minimize database queries for repeated locations.
 
+- [Redis implementation](/redis_impl.md) 
 
 ## Preventive Measures for database performance
 ### Monitor Disk Usage Regularly
