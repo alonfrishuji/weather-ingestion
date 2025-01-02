@@ -50,6 +50,17 @@ async def process_batches() -> None:
     tasks = [ingest_batch_limited(batch, semaphore) for batch in sorted_batches]
     await asyncio.gather(*tasks)
 ```
+**Redis implemenation caching API Responses**
+
+**Why**:
+
+ To reduce redundant calls to external APIs or the database, ensuring faster response times for frequently requested data.
+### Where:
+**fetch_batches**: Cache the results of this function to avoid fetching the same batch data repeatedly from the database or external API.
+
+**fetch_weather_data**: Cache weather data based on latitude and longitude to minimize database queries for repeated locations.
+
+
 ## Preventive Measures for database performance
 ### Monitor Disk Usage Regularly
 

@@ -5,7 +5,6 @@ gunicorn
 sqlalchemy
 psycopg2-binary
 tenacity
-redis
 pytest
 pytest-asyncio
 python-dotenv
