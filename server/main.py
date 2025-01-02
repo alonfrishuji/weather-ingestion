@@ -84,10 +84,14 @@ def get_weather_data():
     # Check if data is in the cache
     cached_data = redis_client.get(cache_key)
     if cached_data:
-        return jsonify(json.loads(cached_data))  # Return cached data
+        return jsonify({"cache": True, "cached_data": json.loads(cached_data)})
     try:
         data = fetch_weather_data(latitude, longitude)
         formatted_data = format_weather_data(data)
+        formatted_data = {
+            key: (value.isoformat() if isinstance(value, datetime.datetime) else value)
+            for key, value in formatted_data.items()
+        }
         
         redis_client.setex(cache_key, CACHE_EXPIRATION, json.dumps(formatted_data))
         return jsonify(formatted_data)
@@ -106,7 +110,7 @@ def summarize_weather():
     
     cached_summary = redis_client.get(cache_key)
     if cached_summary:
-        return jsonify(json.loads(cached_summary))  
+       return jsonify({"cache": True, "cached_summary": json.loads(cached_summary)})
     
     try:
         summary = summarize_weather_data(latitude, longitude)
@@ -124,17 +128,17 @@ def get_batches():
     
     cached_batches = redis_client.get(cache_key)
     if cached_batches:
-        return jsonify(json.loads(cached_batches))  
-
+        return jsonify({"cache": True, "cached_batches": json.loads(cached_batches)})
     try:
         # Fetch batch data from the database
         batches = fetch_batches()
+        batches = fetch_batches()
         formatted_batches = [{
             "batch_id": b.batch_id,
-            "forecast_time": b.forecast_time,
+            "forecast_time": b.forecast_time.isoformat() if b.forecast_time else None,
             "number_of_rows": b.number_of_rows,
-            "start_ingest_time": b.start_ingest_time,
-            "end_ingest_time": b.end_ingest_time,
+            "start_ingest_time": b.start_ingest_time.isoformat() if b.start_ingest_time else None,
+            "end_ingest_time": b.end_ingest_time.isoformat() if b.end_ingest_time else None,
             "status": b.status,
         } for b in batches]
         
