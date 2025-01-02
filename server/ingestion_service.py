@@ -58,7 +58,7 @@ async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str
                     json_data = response.json()
                     batch_data.extend(json_data.get("data", []))
             logger.info(f"Fetched {len(batch_data)} records for batch {batch_id}.")
-            cache_set(cache_key, batch_data)
+            cache_set(cache_key, batch_data, CACHE_EXPIRATION)
             return batch_data
         except httpx.RequestError as e:
             logger.error(f"Error fetching batch data for {batch_id}: {e}")
