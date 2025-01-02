@@ -2,12 +2,12 @@ import pytest
 from unittest.mock import patch
 import redis
 from server.ingestion_service import fetch_batches, fetch_batch_data
-from config import REDIS_URL, CACHE_TTL
+from config import REDIS_URL
 
 # Setup Redis client for testing
 redis_client = redis.StrictRedis.from_url(REDIS_URL, decode_responses=True)
 
-@pytest.mark.skip(reason="Skipping fetch_batches_with_cache test for now")
+@pytest.mark.skip(reason="Skipping fetch_batches_with_cache test")
 @pytest.fixture(scope="function", autouse=True)
 def clear_redis_cache():
     """
@@ -15,7 +15,7 @@ def clear_redis_cache():
     """
     redis_client.flushdb()
 
-@pytest.mark.skip(reason="Skipping fetch_batches_with_cache test for now")
+@pytest.mark.skip(reason="Skipping fetch_batches_with_cache test")
 @pytest.mark.asyncio
 async def test_fetch_batches_with_cache():
     """
