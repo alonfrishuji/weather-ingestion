@@ -88,10 +88,13 @@ def get_weather_data():
     try:
         data = fetch_weather_data(latitude, longitude)
         formatted_data = format_weather_data(data)
-        formatted_data = {
+        formatted_data = [
+        {
             key: (value.isoformat() if isinstance(value, datetime.datetime) else value)
-            for key, value in formatted_data.items()
+            for key, value in record.items()
         }
+        for record in formatted_data
+        ]
         
         redis_client.setex(cache_key, CACHE_EXPIRATION, json.dumps(formatted_data))
         return jsonify(formatted_data)
