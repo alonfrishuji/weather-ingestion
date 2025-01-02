@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import logging
-from cache_utils import initialize_redis
+from server.cache_utils import initialize_redis
 from config import REDIS_URL
 from server.database import init_db
 from server.ingestion_service import process_batches
