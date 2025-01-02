@@ -53,7 +53,7 @@ def initialize_system():
     init_db()
     logger.info("Database initialized successfully.")
     initialize_redis(REDIS_URL)
-    logger.info(" Redis  nitialized successfully.")
+    logger.info(" Redis initialized successfully.")
     
     
 @app.route("/weather/data", methods=["GET"])
