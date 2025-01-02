@@ -12,11 +12,3 @@ def create_mock_response(status_code=200, json_data=None):
 def create_mock_http_error(error_message="Network error"):
     """Creates a mock HTTP error for testing error handling."""
     return httpx.RequestError(error_message)
-
-def verify_batch_metadata(batch_metadata, expected_status, expected_retained=True):
-    """Verifies batch metadata properties."""
-    assert batch_metadata.status == expected_status
-    assert batch_metadata.retained == expected_retained
-    assert batch_metadata.start_ingest_time is not None
-    if expected_status in ["ACTIVE", "INACTIVE"]:
-        assert batch_metadata.end_ingest_time is not None
