@@ -22,19 +22,13 @@ logger = logging.getLogger(__name__)
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(min=2, max=10), retry=retry_if_exception_type(httpx.RequestError))
 async def fetch_batches() -> List[Dict[str, str]]:
     """Fetch available batches from the external API."""
-    cache_key = "batches"
-    cached_batches = cache_get(cache_key)
-    if cached_batches:
-        logger.info("Returning cached batches.")
-        return cached_batches
-    
+
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(BATCHES_ENDPOINT)
             response.raise_for_status()
             logger.info("Fetched batches successfully.")
             batches = response.json()
-            cache_set(cache_key, batches, CACHE_EXPIRATION)
             return batches
         except httpx.RequestError as e:
             logger.error(f"Error fetching batches: {e}")
@@ -230,6 +224,11 @@ async def initialize_metadata(session, batch_id, batch_forecast_time):
     session.commit()
     return batch_data,metadata
 
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(min=2, max=10),
+    retry=retry_if_exception_type(httpx.HTTPStatusError),
+)
 async def process_batches() -> None:
     """Fetch and process all batches."""
     batches = await fetch_batches()
