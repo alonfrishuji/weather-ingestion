@@ -221,21 +221,48 @@ async def initialize_metadata(session, batch_id, batch_forecast_time):
     wait=wait_exponential(min=2, max=10),
     retry=retry_if_exception_type(httpx.HTTPStatusError),
 )
+async def process_single_batch(batch: Dict[str, Union[str, int]]) -> None:
+    """Process a single batch."""
+    try:
+        await ingest_batch(batch)
+    except Exception as e:
+        logger.error(f"Error processing batch {batch['batch_id']}: {e}. Skipping this batch.")
+
+def perform_cleanup_tasks() -> None:
+    """Perform all cleanup tasks."""
+    tasks = [
+        (delete_old_active_batches, "Error deleting old active batches"),
+        (delete_weather_data_for_non_retained_batches, "Error deleting weather data for non-retained batches"),
+        (retain_metadata_for_deleted_batches, "Error retaining metadata for deleted batches"),
+    ]
+
+    for task, error_message in tasks:
+        try:
+            task()
+        except Exception as e:
+            logger.error(f"{error_message}: {e}")
+            
+            
 async def process_batches() -> None:
     """Fetch and process all batches."""
-    batches = await fetch_batches()
-    sorted_batches = sorted(batches, key=lambda x: isoparse(x["forecast_time"]))
-    for batch in sorted_batches:
-        await ingest_batch(batch)  
-        
-    # Cleanup old active batches
-    delete_old_active_batches()
-    # Cleanup non-retained batches
-    delete_weather_data_for_non_retained_batches()
-    # Retain metadata for deleted batches
-    retain_metadata_for_deleted_batches()
-    
-    logger.info("Batch processing completed successfully.")
+    try:
+        batches = await fetch_batches()
+        if not batches:
+            logger.warning("No batches to process.")
+            return
+
+        # Process each batch
+        sorted_batches = sorted(batches, key=lambda x: isoparse(x["forecast_time"]))
+        for batch in sorted_batches:
+            await process_single_batch(batch)
+
+        # Perform cleanup tasks
+        perform_cleanup_tasks()
+
+        logger.info("Batch processing completed successfully.")
+
+    except Exception as e:
+        logger.error(f"Critical error in the batch processing pipeline: {e}")
 
 if __name__ == "__main__":
     asyncio.run(process_batches())
