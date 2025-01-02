@@ -6,9 +6,5 @@ BATCHES_ENDPOINT = f"{API_BASE_URL}/batches"
 BATCH_DATA_ENDPOINT = f"{API_BASE_URL}/batches/{{batch_id}}"
 WEB_SERVICE_BASE_URL = "https://weather-ingestion.onrender.com"
 
-# Redis configurations 
-CACHE_EXPIRATION = 6000
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-
 # Database settings
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 4000))

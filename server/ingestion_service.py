@@ -3,8 +3,6 @@ import logging
 import time
 from datetime import datetime
 from typing import Dict, List, Union
-from server.cache_utils import cache_get, cache_set
-from config import CACHE_EXPIRATION
 import httpx
 from dateutil.parser import isoparse
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -37,11 +35,7 @@ async def fetch_batches() -> List[Dict[str, str]]:
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(min=2, max=10), retry=retry_if_exception_type(httpx.RequestError))
 async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str, Union[str, float]]]:
     """Fetch paginated batch data from the external API."""
-    cache_key = f"batch_data:{batch_id}"
-    cached_data = cache_get(cache_key)
-    if cached_data:
-        logger.info(f"Returning cached data for batch_id {batch_id}.")
-        return cached_data
+
     async with httpx.AsyncClient() as client:
         try:
             tasks = [client.get(BATCH_DATA_ENDPOINT.format(batch_id=batch_id), params={"page": page}) for page in range(total_pages)]
@@ -52,7 +46,6 @@ async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str
                     json_data = response.json()
                     batch_data.extend(json_data.get("data", []))
             logger.info(f"Fetched {len(batch_data)} records for batch {batch_id}.")
-            cache_set(cache_key, batch_data, CACHE_EXPIRATION)
             return batch_data
         except httpx.RequestError as e:
             logger.error(f"Error fetching batch data for {batch_id}: {e}")
@@ -95,7 +88,6 @@ def delete_weather_data_for_non_retained_batches() -> None:
                 WeatherData.batch_id == batch.batch_id
             ).delete()
             
-        logger.info("Deleting weather data for non-retained batches.")
         session.commit()
     except Exception as e:
         session.rollback()

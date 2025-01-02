@@ -1,7 +1,5 @@
 from flask import Flask, request, jsonify
 import logging
-from server.cache_utils import initialize_redis
-from config import REDIS_URL
 from server.database import init_db
 from server.ingestion_service import process_batches
 from server.utils import fetch_weather_data, summarize_weather_data, fetch_batches, format_weather_data, format_weather_summary
@@ -52,9 +50,7 @@ def initialize_system():
     """
     init_db()
     logger.info("Database initialized successfully.")
-    initialize_redis(REDIS_URL)
-    logger.info(" Redis initialized successfully.")
-    
+ 
     
 @app.route("/weather/data", methods=["GET"])
 def get_weather_data():

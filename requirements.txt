@@ -1,7 +1,6 @@
 flask
 python-dateutil
 httpx
-redis
 gunicorn
 sqlalchemy
 psycopg2-binary
