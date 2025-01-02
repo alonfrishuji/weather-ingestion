@@ -3,7 +3,8 @@ import logging
 import time
 from datetime import datetime
 from typing import Dict, List, Union
-
+from server.cache_utils import cache_get, cache_set
+from config import CACHE_EXPIRATION
 import httpx
 from dateutil.parser import isoparse
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -21,12 +22,20 @@ logger = logging.getLogger(__name__)
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(min=2, max=10), retry=retry_if_exception_type(httpx.RequestError))
 async def fetch_batches() -> List[Dict[str, str]]:
     """Fetch available batches from the external API."""
+    cache_key = "batches"
+    cached_batches = cache_get(cache_key)
+    if cached_batches:
+        logger.info("Returning cached batches.")
+        return cached_batches
+    
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(BATCHES_ENDPOINT)
             response.raise_for_status()
             logger.info("Fetched batches successfully.")
-            return response.json()
+            batches = response.json()
+            cache_set(cache_key, batches, CACHE_EXPIRATION)
+            return batches
         except httpx.RequestError as e:
             logger.error(f"Error fetching batches: {e}")
             return []
@@ -34,6 +43,11 @@ async def fetch_batches() -> List[Dict[str, str]]:
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(min=2, max=10), retry=retry_if_exception_type(httpx.RequestError))
 async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str, Union[str, float]]]:
     """Fetch paginated batch data from the external API."""
+    cache_key = f"batch_data:{batch_id}"
+    cached_data = cache_get(cache_key)
+    if cached_data:
+        logger.info(f"Returning cached data for batch_id {batch_id}.")
+        return cached_data
     async with httpx.AsyncClient() as client:
         try:
             tasks = [client.get(BATCH_DATA_ENDPOINT.format(batch_id=batch_id), params={"page": page}) for page in range(total_pages)]
@@ -44,6 +58,7 @@ async def fetch_batch_data(batch_id: str, total_pages: int = 5) -> List[Dict[str
                     json_data = response.json()
                     batch_data.extend(json_data.get("data", []))
             logger.info(f"Fetched {len(batch_data)} records for batch {batch_id}.")
+            cache_set(cache_key, batch_data)
             return batch_data
         except httpx.RequestError as e:
             logger.error(f"Error fetching batch data for {batch_id}: {e}")
