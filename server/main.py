@@ -132,7 +132,6 @@ def get_batches():
     try:
         # Fetch batch data from the database
         batches = fetch_batches()
-        batches = fetch_batches()
         formatted_batches = [{
             "batch_id": b.batch_id,
             "forecast_time": b.forecast_time.isoformat() if b.forecast_time else None,
