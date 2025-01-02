@@ -42,7 +42,7 @@ async def keep_running_ingestion():
         logger.info(f"[{end_time}] Ingestion service completed. Duration: {duration:.2f} seconds.")
         
         logger.info(f"[{datetime.datetime.now()}] Waiting before the next ingestion cycle")
-        await asyncio.sleep(6000)  # Wait 100 minutes before the next cycle
+        await asyncio.sleep(600)  # Wait 10 minutes before the next cycle
 
 
 # Initialize the system
